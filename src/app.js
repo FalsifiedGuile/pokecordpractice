@@ -14,7 +14,7 @@ const config = require('./config.json');
 
 //
 // BOT LISTENERS
-// 
+//
 
 bot.on('ready', () => {
   // Set the bot's activity
@@ -25,10 +25,40 @@ const TIME_TO_ANSWER = 20; // In seconds
 
 let currentPokemon = "";
 let timeout = null;
+let onGoing = false;
+
 const clearGlobals = function() {
   currentPokemon = "";
+  onGoing = false;
+  globalMessage = null;
+  wtp.resetState();
   if (timeout !== null)
     clearTimeout(timeout);
+}
+let globalMessage;
+
+const startQuiz = function() {
+  if (!globalMessage) {
+    return;
+  }
+  wtp.pickRandomPokemon()
+    .then(poke => {
+      //message.reply("I picked " + poke.form.name + "!");
+      globalMessage.channel.send("**WHO'S THAT POKEMON?** (*20 seconds to answer*)");
+      globalMessage.channel.send("", {
+        files: [poke.sprite]
+      });
+      currentPokemon = poke.form.name;
+      globalMessage.delete().catch(O_o=>{});
+      // Set a timeout to guess this random pokémon
+      timeout = setTimeout(() => {
+        globalMessage.channel.send("**IT'S " + currentPokemon.toUpperCase() + "!**");
+        startQuiz();
+      }, TIME_TO_ANSWER * 1000);
+    })
+    .catch(o_O => {
+      globalMessage.reply("Couldn't pick a random Pokémon :(")
+    });
 }
 
 bot.on('message', async message => {
@@ -41,7 +71,7 @@ bot.on('message', async message => {
   // Get the arguments of the command
   const args = message.content.slice(config.prefix.length).trim().split(/ +/g);
   const command = args.shift().toLowerCase();
-
+  globalMessage = message;
   // Execute different behaviours based on the command
   switch (command)
   {
@@ -50,28 +80,10 @@ bot.on('message', async message => {
         break;
       }
       console.log("[!wtp] Picking a random Pokemon!");
-      wtp.pickRandomPokemon()
-        .then(poke => {
-          //message.reply("I picked " + poke.form.name + "!");
-          message.channel.send("**WHO'S THAT POKEMON?** (*20 seconds to answer*)");
-          message.channel.send("", {
-            file: poke.sprite
-          });
-          currentPokemon = poke.form.name;
-          message.delete().catch(O_o=>{});
-          // Set a timeout to guess this random pokémon
-          timeout = setTimeout(() => {
-            wtp.resetState();
-            message.channel.send("**IT'S " + currentPokemon.toUpperCase() + "!**");
-            clearGlobals();
-          }, TIME_TO_ANSWER * 1000);
-        })
-        .catch(o_O => {
-          message.reply("Couldn't pick a random Pokémon :(")
-        });
+      startQuiz();
     }
     break;
-    case 'wtp-its': {
+    case 'guess': {
       if (!wtp.state.activeQuiz) {
         message.reply("No active quiz. Start one by typing !wtp");
         break;
@@ -84,9 +96,16 @@ bot.on('message', async message => {
       if (wtp.checkPokemon(args[0])) {
         message.reply("**YOU WON!** It was " + currentPokemon + "!");
         message.channel.send("Type !wtp to start a new quiz!");
-        clearGlobals();
+        startQuiz();
       } else {
         message.reply("Wrong Pokémon!");
+      }
+    }
+    break;
+    case 'wtp-stop': {
+      if (wtp.state.activeQuiz) {
+        message.reply("PokemonGuess Stopped!");
+        clearGlobals();
       }
     }
     break;
@@ -96,5 +115,4 @@ bot.on('message', async message => {
 //
 // BOT LOGIN
 //
-
-bot.login(config.token);
+bot.login("Njk4MzU1Nzg1NzI1NjQwNzQ3.XpEsRA.2RoEiL91hHolHH7-AkxLCkdFqt4");
