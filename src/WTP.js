@@ -33,7 +33,7 @@ class WTPManager {
           // Get the Pokémon data I need
           const pokemon = {
             form: res.forms[0],
-            sprite: res.sprites.front_default
+            id: res.id
           };
           console.log(pokemon); // Log it
           this.state.pokemon = pokemon; // Update the state accordingly

@@ -21,7 +21,7 @@ bot.on('ready', () => {
   bot.user.setActivity("Type !wtp to play");
 });
 
-const TIME_TO_ANSWER = 20; // In seconds
+const TIME_TO_ANSWER = 30; // In seconds
 
 let currentPokemon = "";
 let timeout = null;
@@ -32,29 +32,67 @@ const clearGlobals = function() {
   onGoing = false;
   globalMessage = null;
   wtp.resetState();
-  if (timeout !== null)
-    clearTimeout(timeout);
+  clearInterval(revealInterval);
 }
+
 let globalMessage;
+let revealInterval; 
+
+function setCharAt(str,index,chr) {
+    if(index > str.length-1) return str;
+    return str.substr(0,index) + chr + str.substr(index+1);
+}
 
 const startQuiz = function() {
-  if (!globalMessage) {
+  if (globalMessage === null) {
     return;
   }
   wtp.pickRandomPokemon()
     .then(poke => {
-      //message.reply("I picked " + poke.form.name + "!");
-      globalMessage.channel.send("**WHO'S THAT POKEMON?** (*20 seconds to answer*)");
+      let interval = 0;
+      globalMessage.channel.send(`**WHO'S THAT POKEMON?** (*${TIME_TO_ANSWER} seconds to answer*)`);
+      let id = parseInt(poke.id) >= 100 ? poke.id : ('0' + poke.id);
+      console.log('0'+id);
       globalMessage.channel.send("", {
-        files: [poke.sprite]
+        files: [`https://assets.pokemon.com/assets/cms2/img/pokedex/full/${id}.png`]
       });
       currentPokemon = poke.form.name;
+      console.log(currentPokemon.length);
+      let blankName = '⌴'.repeat(currentPokemon.length);
+      console.log(blankName);
       globalMessage.delete().catch(O_o=>{});
-      // Set a timeout to guess this random pokémon
-      timeout = setTimeout(() => {
-        globalMessage.channel.send("**IT'S " + currentPokemon.toUpperCase() + "!**");
-        startQuiz();
-      }, TIME_TO_ANSWER * 1000);
+      let msg;
+      let guessMap = null;
+      guessMap = new Object();
+      let revealed = 0;
+      revealInterval = setInterval(async function(){
+        let randomReveal;
+        while(true){
+          randomReveal = Math.floor(Math.random() * currentPokemon.length);
+          if (guessMap[randomReveal] !== true) {
+            revealed++;
+            break;
+          }
+        }
+        blankName = setCharAt(blankName, randomReveal, currentPokemon[randomReveal]);
+        if (interval === 0){
+          msg = await globalMessage.channel.send("**HINT: **" + blankName + "!");
+          guessMap[randomReveal] = true;
+        } else {
+          msg.edit("**HINT: **" + blankName + "!")
+        }
+        interval++;
+        if (interval === 10) {
+          console.log(interval + " Derp")
+          globalMessage.channel.send("**IT'S " + currentPokemon.toUpperCase() + ", ya dumb bitch!**");
+          currentPokemon = "";
+          onGoing = false;
+          globalMessage = null;
+          wtp.resetState();
+          startQuiz();
+          clearInterval(revealInterval);
+        }
+      }, 3000);
     })
     .catch(o_O => {
       globalMessage.reply("Couldn't pick a random Pokémon :(")
@@ -83,7 +121,7 @@ bot.on('message', async message => {
       startQuiz();
     }
     break;
-    case 'guess': {
+    case 'catch': {
       if (!wtp.state.activeQuiz) {
         message.reply("No active quiz. Start one by typing !wtp");
         break;
@@ -94,6 +132,7 @@ bot.on('message', async message => {
       }
       console.log("Someone guessed " + args[0]);
       if (wtp.checkPokemon(args[0])) {
+        clearInterval(revealInterval);
         message.reply("**YOU WON!** It was " + currentPokemon + "!");
         message.channel.send("Type !wtp to start a new quiz!");
         startQuiz();
@@ -102,7 +141,7 @@ bot.on('message', async message => {
       }
     }
     break;
-    case 'wtp-stop': {
+    case 'stop': {
       if (wtp.state.activeQuiz) {
         message.reply("PokemonGuess Stopped!");
         clearGlobals();
@@ -115,4 +154,4 @@ bot.on('message', async message => {
 //
 // BOT LOGIN
 //
-bot.login("Njk4MzU1Nzg1NzI1NjQwNzQ3.XpEsRA.2RoEiL91hHolHH7-AkxLCkdFqt4");
+bot.login(config.token);
